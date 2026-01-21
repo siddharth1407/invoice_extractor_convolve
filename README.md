@@ -16,7 +16,7 @@ We utilized **Qwen2-VL-2B-Instruct** for inference.
 3.  **Hybrid Extraction Logic:**
     * *Primary:* VLM extraction via JSON generation.
     * *Secondary:* Regex-based fallback logic for extracting `Horse Power` from unstructured model descriptions.
-    * *Validation:* Range checks (e.g., HP must be 15-90) to reject model number hallucinations.
+    * *Validation:* Range checks (e.g., HP must be 30-90) to reject model number hallucinations.
 
 ## 3. Cost & Performance Analysis
 
