@@ -1,0 +1,62 @@
+[
+    {
+        "doc_id": "invoice_sample_01.jpg",
+        "fields": {
+            "dealer_name": "श्री गणेश ट्रैक्टर्स",
+            "model_name": "Swaraj 744 FE",
+            "horse_power": 48,
+            "asset_cost": 750000,
+            "signature": {
+                "present": true,
+                "bbox": [
+                    800,
+                    100,
+                    900,
+                    300
+                ]
+            },
+            "stamp": {
+                "present": false,
+                "bbox": [
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }
+        },
+        "confidence": 0.9821,
+        "processing_time_sec": 18.45,
+        "cost_estimate_usd": 0.002
+    },
+    {
+        "doc_id": "invoice_sample_02.jpg",
+        "fields": {
+            "dealer_name": "Mahindra Agencies Pvt Ltd",
+            "model_name": "Mahindra 575 DI",
+            "horse_power": 45,
+            "asset_cost": 620000,
+            "signature": {
+                "present": true,
+                "bbox": [
+                    150,
+                    200,
+                    350,
+                    400
+                ]
+            },
+            "stamp": {
+                "present": true,
+                "bbox": [
+                    150,
+                    200,
+                    350,
+                    400
+                ]
+            }
+        },
+        "confidence": 0.9654,
+        "processing_time_sec": 17.89,
+        "cost_estimate_usd": 0.002
+    }
+]

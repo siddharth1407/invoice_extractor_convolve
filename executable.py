@@ -4,6 +4,7 @@ import torch
 import time
 import ast
 import argparse
+import gc
 from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 from utils.processing import clean_cost, smart_extract_hp, calculate_confidence, validate_bbox
@@ -13,7 +14,6 @@ from utils.processing import clean_cost, smart_extract_hp, calculate_confidence,
 # ===========================
 MODEL_PATH = "Qwen/Qwen2-VL-2B-Instruct"
 
-# System Prompt: Enforces Vernacular retention and JSON formatting
 SYSTEM_INSTRUCTION = """
 You are an expert OCR extraction engine for Indian Invoices. 
 Your task is to extract specific fields EXACTLY as they appear in the document.
@@ -47,7 +47,6 @@ def load_model():
         device_map=device
     )
 
-    # Resolution capped at 1024x1024 for optimal latency/memory balance
     processor = AutoProcessor.from_pretrained(
         MODEL_PATH, min_pixels=256*28*28, max_pixels=1024*28*28
     )
@@ -68,7 +67,6 @@ def process_single_image(model, processor, device, image_path, filename):
         }
     ]
 
-    # Preprocessing
     text = processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True)
     image_inputs, video_inputs = process_vision_info(messages)
@@ -76,7 +74,6 @@ def process_single_image(model, processor, device, image_path, filename):
         text=[text], images=image_inputs, videos=video_inputs, padding=True, return_tensors="pt"
     ).to(device)
 
-    # Inference
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
@@ -85,7 +82,6 @@ def process_single_image(model, processor, device, image_path, filename):
             output_scores=True
         )
 
-    # Decoding
     generated_ids = outputs.sequences
     generated_ids_trimmed = [out_ids[len(in_ids):] for in_ids, out_ids in zip(
         inputs.input_ids, generated_ids)]
@@ -95,9 +91,8 @@ def process_single_image(model, processor, device, image_path, filename):
     confidence_score = calculate_confidence(outputs.scores)
     processing_time = round(time.time() - start_time, 2)
 
-    # Parsing & Logic Layer
     try:
-        # JSON Extraction
+
         clean_text = output_text.replace(
             "```json", "").replace("```", "").strip()
         if "{" in clean_text:
@@ -109,18 +104,15 @@ def process_single_image(model, processor, device, image_path, filename):
         except:
             fields = ast.literal_eval(clean_text)
 
-        # Validation Layer
         if "asset_cost" in fields:
             fields["asset_cost"] = clean_cost(fields["asset_cost"])
 
         fields["horse_power"] = smart_extract_hp(fields)
 
-        # Cleanup Vernacular Text
         if "dealer_name" in fields and isinstance(fields["dealer_name"], str):
             fields["dealer_name"] = fields["dealer_name"].replace(
                 "\n", " ").strip()
 
-        # BBox Standardization
         fields["signature"] = validate_bbox(fields.get("signature"))
         fields["stamp"] = validate_bbox(fields.get("stamp"))
 
@@ -150,14 +142,17 @@ def main():
     parser.add_argument("--input_dir", type=str,
                         default="input_images", help="Path to input images")
     parser.add_argument("--output_file", type=str,
-                        default="result.json", help="Path to output JSON")
+                        default="sample_output/result.json", help="Path to output JSON")
     args = parser.parse_args()
 
     if not os.path.exists(args.input_dir):
         print(f"Error: Input directory '{args.input_dir}' not found.")
         return
 
-    # Initialize Engine
+    output_dir = os.path.dirname(args.output_file)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     model, processor, device = load_model()
 
     files = [f for f in os.listdir(args.input_dir) if f.lower().endswith(
@@ -173,11 +168,13 @@ def main():
         result = process_single_image(model, processor, device, path, filename)
         results.append(result)
 
-        # Console Feedback
+        if i % 10 == 0:
+            torch.mps.empty_cache()
+            gc.collect()
+
         f_data = result.get("fields", {})
         print(f"[{i+1}/{len(files)}] {filename} | {f_data.get('dealer_name')} | ₹{f_data.get('asset_cost')} | Conf: {result.get('confidence')}")
 
-    # Final Serialization
     with open(args.output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=4, ensure_ascii=False)
 
